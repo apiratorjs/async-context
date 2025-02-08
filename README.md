@@ -8,13 +8,13 @@ asynchronous flows without passing context objects through every function.
 ## Installation
 
 ```bash
-npm install async-context
+npm i @apiratorjs/async-context
 ```
 
 if you are using yarn:
 
 ```bash
-yarn add async-context
+yarn add @apiratorjs/async-context
 ```
 
 ## Overview
