@@ -1,6 +1,6 @@
 {
   "name": "@apiratorjs/async-context",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A Node.js async context library leveraging the node:async_hooks module, supporting context merging and overriding.",
   "author": "Alexey Zaitsev (https://oleksiizaitsev.com)",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "build": "rm -rf dist && tsc",
     "watch": "tsc --watch",
     "test": "npm run build && node --test dist/test",
-    "prepare": "npm run build"
+    "prepare": "npm run build && node --test dist/test"
   },
   "engines": {
     "node": ">=16.4.0"

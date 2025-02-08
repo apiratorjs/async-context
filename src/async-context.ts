@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isPrimitive } from "./is-primitive";
 import { AsyncContextStore, TContexStoreName, TFullContextArgs, TNamedContextArgs } from "./types";
-import { isPlainObject } from "./utils";
+import { isPlainObject } from "./is-plain-object";
 
 const alc = new AsyncLocalStorage<AsyncContextStore>();
 
@@ -34,7 +34,7 @@ export class AsyncContext {
   public static getMultiContext(names: TContexStoreName[]): AsyncContextStore {
     names = names ?? [];
 
-    const store = alc.getStore() ?? new AsyncContextStore();
+    const store: AsyncContextStore = alc.getStore() ?? new AsyncContextStore();
     const context: AsyncContextStore = new AsyncContextStore();
 
     for (const name of names) {
@@ -49,7 +49,7 @@ export class AsyncContext {
   public static getContext(): AsyncContextStore;
   public static getContext<T = any>(name?: TContexStoreName): T;
   public static getContext<T = any>(...args: TContexStoreName | void): AsyncContextStore | T {
-    const store = alc.getStore() ?? new AsyncContextStore();
+    const store: AsyncContextStore = alc.getStore() ?? new AsyncContextStore();
 
     if (!args.length) {
       return store;
@@ -65,7 +65,7 @@ export class AsyncContext {
   }
 
   private static buildNamedContext(name: TNamedContextArgs<any>, payload: any, shouldOverride?: boolean): AsyncContextStore {
-    const prevContext = (alc.getStore() as AsyncContextStore) ?? new AsyncContextStore();
+    const prevContext: AsyncContextStore = alc.getStore() ?? new AsyncContextStore();
     const context: AsyncContextStore = new AsyncContextStore(prevContext);
 
     if (!prevContext.has(name)) {
@@ -74,7 +74,6 @@ export class AsyncContext {
     }
 
     if (shouldOverride) {
-      // Override
       context.set(name, payload);
     } else {
       // Merge if both are compatible

@@ -16,6 +16,7 @@ A lightweight Node.js library for managing asynchronous contexts using the built
 - **Context Overriding:** Override existing context data when needed.
 - **Typed Context Store:** Built with TypeScript to provide type safety.
 - **Easy Integration:** Works out-of-the-box with Node.js asynchronous operations.
+- **Extended Map Functionality:** `AsyncContextStore` extends the native `Map` class, so all Map methods (such as `set`, `get`, `has`, `delete`, etc.) are available and it supports any type as a key—including classes.
 
 ---
 
