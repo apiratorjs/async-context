@@ -1,0 +1,13 @@
+# Ignore Editor Configs
+.idea/
+.vscode/
+
+# Ignore system files
+.DS_Store
+
+# Ignore Node.js dependencies
+node_modules/
+package-lock.json
+
+# Ignore TypeScript build outputs
+dist/
