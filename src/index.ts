@@ -1,7 +1,7 @@
-import * as types from "./types";
+import { IContext } from "./types";
 import { AsyncContext } from "./async-context";
 
 export {
-  types,
+  IContext,
   AsyncContext
 };
