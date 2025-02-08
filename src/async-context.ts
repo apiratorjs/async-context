@@ -1,33 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { IContext } from "./types";
 import { isPrimitive } from "./is-primitive";
+import { AsyncContextStore, TContexStoreName, TFullContextArgs, TNamedContextArgs } from "./types";
+import { isPlainObject } from "./utils";
 
-const alc = new AsyncLocalStorage<IContext>();
+const alc = new AsyncLocalStorage<AsyncContextStore>();
 
 export class AsyncContext {
-  /**
-   * Runs a callback within a new async context, merging new values into the current context.
-   *
-   * **Overload 1**
-   * `withContext(name: string, ctx: IContext, callback: () => Promise<any> | any): Promise<any>`
-   *
-   * **Overload 2**
-   * `withContext(ctx: Partial<IContext>, callback: () => Promise<any> | any): Promise<any>`
-   *
-   *  - **Overload 1**: The name of the context key to store
-   *  - **Overload 2**: A partial context object that will be merged into the current context
-   *
-   *  - **Overload 1**: The context object to merge under the `name` key
-   *  - **Overload 2**: The callback to execute within the newly created async context
-   *
-   * @param name {string}
-   * @param ctx {IContext}
-   * @param callback {() => Promise<any> | any}
-   * @returns {Promise<any>} The result of the `callback` function.
-   */
-  public static async withContext(name: string, ctx: IContext, callback: () => Promise<any> | any): Promise<any>
-  public static async withContext(ctx: Partial<IContext>, callback: () => Promise<any> | any): Promise<any>
-  public static async withContext(...args: any[]): Promise<any> {
+  public static withContext<T>(...args: TNamedContextArgs<T>): Promise<T> | T
+  public static withContext<T>(...args: TFullContextArgs<T>): Promise<T> | T
+  public static withContext<T>(...args: TNamedContextArgs<T> | TFullContextArgs<T>): Promise<T> | T {
     if (args.length === 3) {
       const [name, context, callback] = args;
       return alc.run(AsyncContext.buildNamedContext(name, context), callback);
@@ -37,29 +18,9 @@ export class AsyncContext {
     return alc.run(AsyncContext.buildContext(context, false), callback);
   }
 
-  /**
-   * Similar to `withContext` but any existing context data under the same key(s) is overridden rather than merged.
-   *
-   * **Overload 1**
-   * `withContextOverride(name: string, ctx: IContext, callback: () => Promise<any> | any): Promise<any>`
-   *
-   * **Overload 2**
-   * `withContextOverride(ctx: Partial<IContext>, callback: () => Promise<any> | any): Promise<any>`
-   *
-   * - **Overload 1**: The name of the context key to store
-   * - **Overload 2**: A partial context object that will be merged into the current context
-   *
-   * - **Overload 1**: The context object to merge under the `name` key
-   * - **Overload 2**: The callback to execute within the newly created async context
-   *
-   * @param {string} name
-   * @param {IContext} ctx
-   * @param {() => Promise<any> | any} callback
-   * @returns {Promise<any>} The result of the `callback` function.
-   */
-  public static async withContextOverride(name: string, ctx: IContext, callback: () => Promise<any> | any): Promise<any>
-  public static async withContextOverride(ctx: Partial<IContext>, callback: () => Promise<any> | any): Promise<any>
-  public static async withContextOverride(...args: any[]): Promise<any> {
+  public static withContextOverride<T>(...args: TNamedContextArgs<T>): Promise<T> | T
+  public static withContextOverride<T>(...args: TFullContextArgs<T>): Promise<T> | T
+  public static withContextOverride<T>(...args: TNamedContextArgs<T> | TFullContextArgs<T>): Promise<T> | T {
     if (args.length === 3) {
       const [name, context, callback] = args;
       return alc.run(AsyncContext.buildNamedContext(name, context, true), callback);
@@ -70,100 +31,82 @@ export class AsyncContext {
   }
 
 
-  /**
-   * Retrieves the current async context, or specific parts of it.
-   *
-   * **Overload 1**
-   * `getContext(): IContext`
-   * Returns the entire context object.
-   *
-   * **Overload 2**
-   * `getContext(name: string): IContext`
-   * Returns the context object under the specified key.
-   *
-   * **Overload 3**
-   * `getContext(name: string[]): IContext`
-   * Returns a context object with the specified keys.
-   *
-   * @param {string | string[]} [name] The key or keys to retrieve from the context.
-   * @returns {IContext} The context object or specific parts of it.
-   */
-  public static getContext(name?: string): IContext
-  public static getContext(name?: string[]): IContext
-  public static getContext(...args: any[]): IContext {
-    const store = alc.getStore() ?? {};
+  public static getMultiContext(names: TContexStoreName[]): AsyncContextStore {
+    names = names ?? [];
 
-    if (!args.length) {
-      return store;
-    }
+    const store = alc.getStore() ?? new AsyncContextStore();
+    const context: AsyncContextStore = new AsyncContextStore();
 
-    if (Array.isArray(args[0])) {
-      const names = args[0] as string[];
-      const context: IContext = {};
-
-      for (const name of names) {
-        context[name] = store[name];
+    for (const name of names) {
+      if (store.has(name)) {
+        context.set(name, store.get(name));
       }
-
-      return context;
-    }
-
-    const name = args[0] as string;
-
-    return name ? store[name] : store;
-  }
-
-  /**
-   * Checks if the code is currently running within a context created by `AsyncContext`.
-   *
-   * @returns {boolean} `true` if inside a context, otherwise `false`.
-   */
-  public static isInContext(): boolean {
-    return !!alc.getStore();
-  }
-
-  /**
-   * Builds a new context object, either merging or overriding the value of an existing context key.
-   *
-   * @private
-   * @param {string} name - The key in the context to modify.
-   * @param {IContext} ctx - The context value to merge or override.
-   * @param {boolean} [shouldOverride=false] - If `true`, the old value is replaced entirely. If `false`, new is merged into existing.
-   * @returns {IContext} A new context object with the merged or overridden value.
-   */
-  private static buildNamedContext(name: string, ctx: IContext, shouldOverride?: boolean): IContext {
-    const prevContext = (alc.getStore() as IContext) ?? {};
-    const context = { ...prevContext };
-
-    if (shouldOverride) {
-      context[name] = ctx;
-    } else {
-      context[name] = { ...prevContext[name], ...ctx };
     }
 
     return context;
   }
 
-  /**
-   * Builds a new context object from multiple context keys, either merging or overriding each key's value.
-   *
-   * @private
-   * @param {IContext} ctx - The partial or full context object containing multiple keys to merge or override.
-   * @param {boolean} shouldOverride - If `true`, the old value is replaced entirely for each key; if `false`, it’s merged.
-   * @returns {IContext} A new context object with merged or overridden values for each key in `ctx`.
-   */
-  private static buildContext(ctx: IContext, shouldOverride: boolean): IContext {
-    const prevContext: IContext = (alc.getStore() as IContext) || {};
-    const context: IContext = { ...prevContext };
+  public static getContext(): AsyncContextStore;
+  public static getContext<T = any>(name?: TContexStoreName): T;
+  public static getContext<T = any>(...args: TContexStoreName | void): AsyncContextStore | T {
+    const store = alc.getStore() ?? new AsyncContextStore();
 
-    for (const [contextName, value] of Object.entries(ctx)) {
+    if (!args.length) {
+      return store;
+    }
+
+    const name = args[0] as string;
+
+    return name ? store.get(name) : store;
+  }
+
+  public static isInContext(): boolean {
+    return !!alc.getStore();
+  }
+
+  private static buildNamedContext(name: TNamedContextArgs<any>, payload: any, shouldOverride?: boolean): AsyncContextStore {
+    const prevContext = (alc.getStore() as AsyncContextStore) ?? new AsyncContextStore();
+    const context: AsyncContextStore = new AsyncContextStore(prevContext);
+
+    if (!prevContext.has(name)) {
+      context.set(name, payload);
+      return context;
+    }
+
+    if (shouldOverride) {
+      // Override
+      context.set(name, payload);
+    } else {
+      // Merge if both are compatible
+      const prevPayload = prevContext.get(name);
+      if (isPlainObject(prevPayload) && isPlainObject(payload)) {
+        context.set(name, { ...prevPayload, ...payload });
+      } else if (prevPayload instanceof Map && payload instanceof Map) {
+        context.set(name, new Map([...prevPayload, ...payload]));
+      } else if (prevPayload instanceof Set && payload instanceof Set) {
+        context.set(name, new Set([...prevPayload, ...payload]));
+      } else if (Array.isArray(prevPayload) && Array.isArray(payload)) {
+        context.set(name, [...prevPayload, ...payload]);
+      }
+    }
+
+    return context;
+  }
+
+
+  private static buildContext(ctx: AsyncContextStore, shouldOverride: boolean): AsyncContextStore {
+    const prevContext: AsyncContextStore = (alc.getStore() as AsyncContextStore) || new AsyncContextStore();
+    const context: AsyncContextStore = new AsyncContextStore(prevContext);
+
+    for (const [contextName, value] of ctx.entries()) {
       if (isPrimitive(value)) {
-        context[contextName] = value;
+        context.set(contextName, value);
         continue;
       }
 
-      const builtContext = AsyncContext.buildNamedContext(contextName, value, shouldOverride);
-      context[contextName] = { ...context[contextName], ...builtContext[contextName] };
+      const builtContext = AsyncContext.buildNamedContext(contextName as TContexStoreName, value, shouldOverride);
+
+      context.set(contextName, builtContext.get(contextName));
     }
 
     return context;

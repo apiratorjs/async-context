@@ -1,7 +1,8 @@
-import { IContext } from "./types";
+import { AsyncContextStore, TContexStoreName } from "./types";
 import { AsyncContext } from "./async-context";
 
 export {
-  IContext,
+  AsyncContextStore,
+  TContexStoreName,
   AsyncContext
 };
