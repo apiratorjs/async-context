@@ -122,3 +122,8 @@ To run the tests locally:
 1. Clone the repository.
 2. Install the dependencies using `npm install` or `yarn install`.
 3. Run the tests using `npm test` or `yarn test`.
+
+### Contributing
+
+Contributions, issues, and feature requests are welcome!
+Please open an issue or submit a pull request on [GitHub](https://github.com/apiratorjs/async-context).
