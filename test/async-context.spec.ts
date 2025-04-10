@@ -136,4 +136,79 @@ describe("AsyncContext", () => {
       });
     });
   });
+
+  it("withContext merges object context by adding new keys", async () => {
+    await AsyncContext.withContext("settings", { a: 1 }, async () => {
+      await AsyncContext.withContext("settings", { b: 2 }, () => {
+        assert.deepStrictEqual(AsyncContext.getContext("settings"), { a: 1, b: 2 });
+      });
+    });
+  });
+
+  it("withContext merges object context and overrides conflicting keys", async () => {
+    await AsyncContext.withContext("settings", { a: 1, b: 2 }, async () => {
+      await AsyncContext.withContext("settings", { b: 99, c: 3 }, () => {
+        assert.deepStrictEqual(AsyncContext.getContext("settings"), { a: 1, b: 99, c: 3 });
+      });
+    });
+  });
+
+  it("withContext merges Maps and overrides duplicate keys", async () => {
+    const m1 = new Map([["key1", "v1"], ["key2", "v2"]]);
+    const m2 = new Map([["key2", "override"], ["key3", "v3"]]);
+
+    await AsyncContext.withContext("mymap", m1, async () => {
+      await AsyncContext.withContext("mymap", m2, () => {
+        const result = AsyncContext.getContext("mymap") as Map<string, string>;
+        assert.deepStrictEqual([...result.entries()], [["key1", "v1"], ["key2", "override"], ["key3", "v3"]]);
+      });
+    });
+  });
+
+  it("withContext merges Sets by unioning all values", async () => {
+    const s1 = new Set(["x", "y"]);
+    const s2 = new Set(["y", "z"]);
+
+    await AsyncContext.withContext("letters", s1, async () => {
+      await AsyncContext.withContext("letters", s2, () => {
+        const result = AsyncContext.getContext("letters") as Set<string>;
+        assert.deepStrictEqual([...result].sort(), ["x", "y", "z"]);
+      });
+    });
+  });
+
+  it("withContext merges arrays by concatenation", async () => {
+    await AsyncContext.withContext("arr", [1, 2], async () => {
+      await AsyncContext.withContext("arr", [2, 3], () => {
+        assert.deepStrictEqual(AsyncContext.getContext("arr"), [1, 2, 2, 3]);
+      });
+    });
+  });
+
+  it("withContext overrides primitive values", async () => {
+    await AsyncContext.withContext("count", 100, async () => {
+      await AsyncContext.withContext("count", 200, () => {
+        assert.strictEqual(AsyncContext.getContext("count"), 200);
+      });
+    });
+  });
+
+  it("withContext supports chained merging across multiple levels", async () => {
+    const user1 = { name: "Alice", age: 30 };
+    const user2 = { age: 31, city: "Paris" };
+    const user3 = { country: "France" };
+
+    await AsyncContext.withContext("user", user1, async () => {
+      await AsyncContext.withContext("user", user2, async () => {
+        await AsyncContext.withContext("user", user3, () => {
+          assert.deepStrictEqual(AsyncContext.getContext("user"), {
+            name: "Alice",
+            age: 31,
+            city: "Paris",
+            country: "France",
+          });
+        });
+      });
+    });
+  });
 });

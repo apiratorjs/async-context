@@ -11,3 +11,5 @@ package-lock.json
 
 # Ignore TypeScript build outputs
 dist/
+
+.npmrc

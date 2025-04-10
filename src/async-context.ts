@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { isPrimitive } from "./is-primitive";
 import { AsyncContextStore, TContexStoreName, TFullContextArgs, TNamedContextArgs } from "./types";
 import { isPlainObject } from "./is-plain-object";
 
@@ -78,6 +77,47 @@ export class AsyncContext {
     } else {
       // Merge if both are compatible
       const prevPayload = prevContext.get(name);
+
+      // Detect if some keys of payload override the previous payload and warn about it
+      if (isPlainObject(prevPayload) && isPlainObject(payload)) {
+        Object.keys(payload).forEach((key: string) => {
+          if (key in prevPayload) {
+            console.log(`[${AsyncContext.name}] [INFO] Key "${key}" in context "${name}" is being overridden. Previous value:`, prevPayload[key], "New value:", payload[key]);
+          }
+        });
+      } else if (prevPayload instanceof Map && payload instanceof Map) {
+        const prevKeys = Array.from(prevPayload.keys());
+        const newKeys = Array.from(payload.keys());
+
+        newKeys.forEach((key: string) => {
+          if (prevKeys.includes(key)) {
+            console.log(`[${AsyncContext.name}] [INFO] Key "${key}" in context "${name}" is being overridden. Previous value:`, prevPayload.get(key), "New value:", payload.get(key));
+          }
+        });
+      } else if (prevPayload instanceof Set && payload instanceof Set) {
+        const prevValues = Array.from(prevPayload);
+        const newValues = Array.from(payload);
+
+        newValues.forEach((value: any) => {
+          if (prevValues.includes(value)) {
+            console.log(
+              `[${AsyncContext.name}] [INFO] Value "${value}" in context "${name}" is being overridden. Previous set included:`, prevValues, "New set includes:", newValues);
+          }
+        });
+      } else if (Array.isArray(prevPayload) && Array.isArray(payload)) {
+        const prevKeys = Array.from(prevPayload);
+        const newKeys = Array.from(payload);
+
+        newKeys.forEach((key: string) => {
+          if (prevKeys.includes(key)) {
+            console.log(`[${AsyncContext.name}] [INFO] Key "${key}" in context "${name}" is being overridden. Previous value:`, prevPayload, "New value:", payload);
+          }
+        });
+      } else {
+        console.log(`[${AsyncContext.name}] [INFO] Value "${prevPayload}" in context "${name}" is being overridden. Previous value:`, prevPayload, "New value:", payload);
+      }
+
+      // Merge the payload with the previous payload
       if (isPlainObject(prevPayload) && isPlainObject(payload)) {
         context.set(name, { ...prevPayload, ...payload });
       } else if (prevPayload instanceof Map && payload instanceof Map) {
@@ -86,6 +126,8 @@ export class AsyncContext {
         context.set(name, new Set([...prevPayload, ...payload]));
       } else if (Array.isArray(prevPayload) && Array.isArray(payload)) {
         context.set(name, [...prevPayload, ...payload]);
+      } else {
+        context.set(name, payload);
       }
     }
 
@@ -98,11 +140,6 @@ export class AsyncContext {
     const context: AsyncContextStore = new AsyncContextStore(prevContext);
 
     for (const [contextName, value] of ctx.entries()) {
-      if (isPrimitive(value)) {
-        context.set(contextName, value);
-        continue;
-      }
-
       const builtContext = AsyncContext.buildNamedContext(contextName as TContexStoreName, value, shouldOverride);
 
       context.set(contextName, builtContext.get(contextName));
