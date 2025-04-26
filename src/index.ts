@@ -1,7 +1,4 @@
-import { AsyncContextStore } from "./types";
+export * from "./types";
 import { AsyncContext } from "./async-context";
 
-export {
-  AsyncContextStore,
-  AsyncContext
-};
+export { AsyncContext };
